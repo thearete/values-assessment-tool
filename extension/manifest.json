@@ -1,14 +1,24 @@
 {
   "manifest_version": 3,
   "name": "Koppla",
-  "version": "1.0.0",
-  "description": "Values assessment tool — checks organizations against sanctions, builds network graphs, and assigns risk flags.",
+  "version": "1.1.0",
+  "description": "Values assessment tool — checks organizations against sanctions, searches web for concerns, builds network graphs, and assigns risk flags.",
   "permissions": [
     "storage",
     "clipboardWrite"
   ],
   "host_permissions": [
     "http://localhost:3777/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
   ],
   "action": {
     "default_popup": "popup.html",

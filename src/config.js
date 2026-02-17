@@ -88,6 +88,22 @@ module.exports = {
     deduplicationThreshold: 0.85,     // name similarity threshold for merging duplicates (0-1)
   },
 
+  // --- Web Search Settings ---
+  // DuckDuckGo HTML search for public information
+  webSearch: {
+    maxResultsPerQuery: 10,
+    searchSuffixes: [
+      'controversy',
+      'sanctions',
+      'investigation',
+      'human rights violations',
+      'extremism terrorism',
+      'fraud corruption',
+      'banned prohibited',
+    ],
+    delayBetweenSearches: 3000, // ms between DDG queries (be respectful)
+  },
+
   // --- Cross-Referencing Settings ---
   // Controls how connections between entities are detected
   crossReferencing: {

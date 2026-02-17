@@ -1,32 +1,45 @@
 /**
- * News Scraper (Placeholder)
+ * News Scraper
  *
- * This module will eventually scrape news sites for organization mentions.
- * For now it returns empty results — the sanctions scraper is our first
- * working data source.
+ * Searches for news articles about an organization using DuckDuckGo web search,
+ * filtered for results from known news source URLs.
  *
- * Future sources:
- * - DN.se (Dagens Nyheter)
- * - SVT.se (Swedish public TV)
- * - Reuters
- * - BBC
+ * Powered by the web search scraper module.
  */
+
+const { searchForOrganization, classifySourceUrl, analyzeSnippetForKeywords } = require('./webSearchScraper');
 
 /**
  * Search news sources for mentions of an organization.
- * Currently a placeholder that returns no results.
  *
  * @param {string} orgName - Organization name to search for
- * @returns {Object} Search results (empty for now)
+ * @returns {Object} { orgName, articles, source, totalSearchResults, error, checkedAt }
  */
 async function searchNews(orgName) {
-  console.log(`  News scraper not yet implemented — skipping for "${orgName}"`);
+  console.log(`  Searching news for "${orgName}"...`);
+
+  const searchResult = await searchForOrganization(orgName);
+
+  // Filter for news-classified results
+  const newsResults = searchResult.allResults.filter(
+    (r) => classifySourceUrl(r.url) === 'news'
+  );
+
+  const articles = newsResults.map((r) => ({
+    title: r.title,
+    url: r.url,
+    snippet: r.snippet,
+    keywords: analyzeSnippetForKeywords(`${r.title} ${r.snippet}`),
+  }));
+
+  console.log(`  Found ${articles.length} news article(s) from ${searchResult.searchesPerformed} searches`);
 
   return {
     orgName,
-    articles: [],
-    source: 'News (not yet implemented)',
-    error: null,
+    articles,
+    source: 'DuckDuckGo News Search',
+    totalSearchResults: searchResult.totalResults,
+    error: searchResult.errors.length > 0 ? searchResult.errors.join('; ') : null,
     checkedAt: new Date().toISOString(),
   };
 }

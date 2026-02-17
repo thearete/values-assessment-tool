@@ -32,15 +32,15 @@
   --flag-grey-bg: #EDF2F7;
 
   /* Neumorphic shadows */
-  --shadow-raised: 6px 6px 12px #c5ccd3, -6px -6px 12px #ffffff;
-  --shadow-pressed: inset 4px 4px 8px #c5ccd3, inset -4px -4px 8px #ffffff;
-  --shadow-subtle: 3px 3px 6px #c5ccd3, -3px -3px 6px #ffffff;
-  --shadow-hover: 8px 8px 16px #c5ccd3, -8px -8px 16px #ffffff;
+  --shadow-raised: 5px 5px 10px #c5ccd3, -5px -5px 10px #f0f5f8;
+  --shadow-pressed: inset 3px 3px 6px #c5ccd3, inset -3px -3px 6px #f0f5f8;
+  --shadow-subtle: 3px 3px 6px #cbd2d9, -3px -3px 6px #f0f5f8;
+  --shadow-hover: 7px 7px 14px #c5ccd3, -7px -7px 14px #f0f5f8;
 
   /* Spacing */
-  --radius: 16px;
-  --radius-sm: 10px;
-  --radius-xs: 6px;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-xs: 8px;
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;

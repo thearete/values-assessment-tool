@@ -131,6 +131,18 @@ async function startApp() {
   // Check server
   await checkServerStatus();
 
+  // Recover state from background service worker
+  await recoverState();
+
+  // Listen for state changes from service worker
+  if (typeof chrome !== 'undefined' && chrome.runtime) {
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.type === 'STATE_CHANGED') {
+        handleStateChange(message.payload);
+      }
+    });
+  }
+
   // Set up header menu
   const menuToggle = document.getElementById('menu-toggle');
   const menuDropdown = document.getElementById('menu-dropdown');
@@ -158,8 +170,48 @@ async function startApp() {
   document.getElementById('btn-download')?.addEventListener('click', downloadAssessment);
   document.getElementById('btn-share')?.addEventListener('click', shareAssessment);
 
-  // Start on dashboard
-  navigateTo('dashboard');
+  // Navigate based on recovered state
+  if (state.currentAssessment) {
+    navigateTo('results');
+  } else {
+    navigateTo('dashboard');
+  }
+}
+
+// === State Recovery from Service Worker ===
+
+async function recoverState() {
+  if (typeof chrome === 'undefined' || !chrome.runtime) return;
+
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'GET_STATE' }, (response) => {
+      if (chrome.runtime.lastError || !response) {
+        resolve();
+        return;
+      }
+
+      if (response.status === 'completed' && response.assessment) {
+        state.currentAssessment = response.assessment;
+      } else if (response.status === 'running') {
+        showLoading(response.currentStep || 'Assessment in progress...');
+      }
+
+      resolve();
+    });
+  });
+}
+
+function handleStateChange(kopplaState) {
+  if (kopplaState.status === 'running') {
+    showLoading(kopplaState.currentStep || 'Processing...');
+  } else if (kopplaState.status === 'completed' && kopplaState.assessment) {
+    hideLoading();
+    state.currentAssessment = kopplaState.assessment;
+    navigateTo('results');
+  } else if (kopplaState.status === 'error') {
+    hideLoading();
+    showToast(kopplaState.error || 'Assessment failed');
+  }
 }
 
 // Start when DOM is ready

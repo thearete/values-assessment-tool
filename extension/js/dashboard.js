@@ -232,38 +232,26 @@ function setupDashboardEvents() {
       ...seeds.orgs.map((s) => ({ name: s.name, type: 'organization', role: null })),
     ];
 
-    showLoading('Checking sanctions lists...');
-
-    // Simulate step updates
-    const steps = [
-      'Checking sanctions lists...',
-      'Building evidence list...',
-      'Processing languages...',
-      'Extracting entities...',
-      'Building network graph...',
-      'Scoring evidence...',
-      'Assigning flag...',
-      'Generating suggestions...',
-    ];
-    let stepIndex = 0;
-    const stepInterval = setInterval(() => {
-      stepIndex++;
-      if (stepIndex < steps.length) {
-        updateLoadingStep(steps[stepIndex]);
+    // Send to service worker — assessment runs in background
+    if (typeof chrome !== 'undefined' && chrome.runtime) {
+      chrome.runtime.sendMessage({
+        type: 'START_ASSESSMENT',
+        payload: { orgName, seeds: allSeeds },
+      });
+    } else {
+      // Fallback for non-extension context (direct testing)
+      const assessment = await API.runAssessment(orgName, allSeeds);
+      hideLoading();
+      if (assessment.error) {
+        showToast(assessment.message || 'Assessment failed');
+        return;
       }
-    }, 3000);
-
-    const assessment = await API.runAssessment(orgName, allSeeds);
-    clearInterval(stepInterval);
-    hideLoading();
-
-    if (assessment.error) {
-      showToast(assessment.message || 'Assessment failed');
+      state.currentAssessment = assessment;
+      navigateTo('results');
       return;
     }
 
-    state.currentAssessment = assessment;
-    navigateTo('results');
+    showLoading('Checking sanctions lists...');
   });
 }
 

@@ -58,8 +58,13 @@ function renderResults(assessment) {
       : ''}
   `;
 
-  // Event: back button
-  document.getElementById('results-back')?.addEventListener('click', () => navigateTo('dashboard'));
+  // Event: back button — also clear background state so widget hides
+  document.getElementById('results-back')?.addEventListener('click', () => {
+    if (typeof chrome !== 'undefined' && chrome.runtime) {
+      chrome.runtime.sendMessage({ type: 'CLEAR_STATE' });
+    }
+    navigateTo('dashboard');
+  });
 
   // Set up collapsibles
   setupCollapsibles();

@@ -8,21 +8,23 @@
  *   node src/index.js "Org Name" --pdf "/path/to/report.pdf"
  *   node src/index.js --list
  *
- * Pipeline (9 steps):
+ * Pipeline (10 steps):
  * 1. Check sanctions (org + seed names)
- * 2. Build evidence list
- * 3. Extract text from PDFs (if provided)
- * 4. Detect languages & translate
- * 5. Extract entities (seeds injected)
- * 6. Cross-reference & build network graph
- *    6.5. Calculate hop distances & apply decay
- * 7. Score evidence & generate hypotheses
- * 8. Assign flag (with threshold info)
- * 9. Generate investigation suggestions
+ * 2. Web search for public information (DuckDuckGo)
+ * 3. Build evidence list
+ * 4. Extract text from PDFs (if provided)
+ * 5. Detect languages & translate
+ * 6. Extract entities (seeds injected)
+ * 7. Cross-reference & build network graph
+ *    7.5. Calculate hop distances & apply decay
+ * 8. Score evidence & generate hypotheses
+ * 9. Assign flag (with threshold info)
+ * 10. Generate investigation suggestions
  * Save + print
  */
 
 const { checkAllSanctions } = require('./scrapers/sanctionsScraper');
+const { searchForOrganization, buildEvidenceFromSearchResults } = require('./scrapers/webSearchScraper');
 const { extractFromMultiplePDFs } = require('./scrapers/pdfScraper');
 const { scoreAllEvidence } = require('./scoring/credibility');
 const { assignFlag } = require('./scoring/flagAssignment');
@@ -162,8 +164,8 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
 
   clearTranslationCache();
 
-  // === [1/9] Check sanctions (org name + seed names) ===
-  console.log('\n[1/9] Checking sanctions lists...');
+  // === [1/10] Check sanctions (org name + seed names) ===
+  console.log('\n[1/10] Checking sanctions lists...');
   const sanctionsResult = await checkAllSanctions(orgName);
 
   // Also check seed person/org names against sanctions
@@ -174,8 +176,20 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
     seedSanctionsResults.push({ seed, result: seedResult });
   }
 
-  // === [2/9] Build evidence list ===
-  console.log('\n[2/9] Building evidence list...');
+  // === [2/10] Web search for public information ===
+  console.log('\n[2/10] Searching web for public information...');
+  const webSearchResult = await searchForOrganization(orgName);
+  console.log(`  Performed ${webSearchResult.searchesPerformed} searches`);
+  console.log(`  Found ${webSearchResult.totalResults} unique results`);
+  if (webSearchResult.errors.length > 0) {
+    console.log(`  Search errors: ${webSearchResult.errors.length}`);
+  }
+
+  const webEvidence = buildEvidenceFromSearchResults(webSearchResult.allResults, orgName);
+  console.log(`  Generated ${webEvidence.length} evidence item(s) from web search`);
+
+  // === [3/10] Build evidence list ===
+  console.log('\n[3/10] Building evidence list...');
   const evidence = buildEvidenceFromSanctions(sanctionsResult);
 
   // Add evidence from seed sanctions checks
@@ -198,23 +212,27 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
       }
     }
   }
+
+  // Add evidence from web search
+  evidence.push(...webEvidence);
+
   console.log(`  Found ${evidence.length} piece(s) of evidence`);
 
-  // === [3/9] Extract text from PDFs ===
+  // === [4/10] Extract text from PDFs ===
   let pdfResults = { results: [], totalPages: 0, successCount: 0, errorCount: 0 };
   if (pdfPaths.length > 0) {
-    console.log(`\n[3/9] Extracting text from ${pdfPaths.length} PDF(s)...`);
+    console.log(`\n[4/10] Extracting text from ${pdfPaths.length} PDF(s)...`);
     pdfResults = await extractFromMultiplePDFs(pdfPaths);
     console.log(`  Extracted from ${pdfResults.successCount} PDF(s), ${pdfResults.totalPages} pages total`);
     if (pdfResults.errorCount > 0) {
       console.log(`  ${pdfResults.errorCount} PDF(s) failed`);
     }
   } else {
-    console.log('\n[3/9] No PDFs provided — skipping');
+    console.log('\n[4/10] No PDFs provided — skipping');
   }
 
-  // === [4/9] Language detection & translation ===
-  console.log('\n[4/9] Processing languages...');
+  // === [5/10] Language detection & translation ===
+  console.log('\n[5/10] Processing languages...');
   const processedTexts = await processLanguages(evidence, sanctionsResult, seeds, pdfResults);
   const languagesDetected = [...new Set(processedTexts.map((t) => t.language))];
   const translationsPerformed = processedTexts.filter(
@@ -224,8 +242,8 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
   console.log(`  Languages: ${languagesDetected.join(', ') || 'none'}`);
   console.log(`  Translations: ${translationsPerformed}`);
 
-  // === [5/9] Entity extraction (seeds injected) ===
-  console.log('\n[5/9] Extracting entities...');
+  // === [6/10] Entity extraction (seeds injected) ===
+  console.log('\n[6/10] Extracting entities...');
   const textObjects = processedTexts.map((pt) => ({
     text: pt.translatedText || pt.originalText,
     source: pt.source,
@@ -286,8 +304,8 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
     console.log(`  (includes ${seeds.length} user-provided seed(s))`);
   }
 
-  // === [6/9] Cross-reference & build network ===
-  console.log('\n[6/9] Cross-referencing & building network...');
+  // === [7/10] Cross-reference & build network ===
+  console.log('\n[7/10] Cross-referencing & building network...');
   const textSources = processedTexts.map((pt) => ({
     text: pt.translatedText || pt.originalText,
     source: pt.source,
@@ -304,7 +322,7 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
     crossRefResult.relationships
   );
 
-  // [6.5] Calculate hop distances & apply decay
+  // [7.5] Calculate hop distances & apply decay
   calculateHopDistances(networkGraph);
   applyDistanceDecay(networkGraph);
 
@@ -318,8 +336,8 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
     console.log(`  Hop distribution: ${hops}`);
   }
 
-  // === [7/9] Score evidence & generate hypotheses ===
-  console.log('\n[7/9] Scoring evidence & generating hypotheses...');
+  // === [8/10] Score evidence & generate hypotheses ===
+  console.log('\n[8/10] Scoring evidence & generating hypotheses...');
   const scoredResults = scoreAllEvidence(evidence);
   const { hypotheses, confidenceWarnings } = generateHypotheses(
     scoredResults,
@@ -332,8 +350,8 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
   console.log(`  Hypotheses: ${hypotheses.length}`);
   console.log(`  Name warnings: ${confidenceWarnings.length}`);
 
-  // === [8/9] Assign flag ===
-  console.log('\n[8/9] Assigning flag...');
+  // === [9/10] Assign flag ===
+  console.log('\n[9/10] Assigning flag...');
   const flag = assignFlag({
     sanctionsResult,
     scoredResults,
@@ -356,7 +374,7 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
     languageProcessing: { textsProcessed: processedTexts.length, languagesDetected, translationsPerformed },
   };
 
-  console.log('\n[9/9] Generating investigation suggestions...');
+  console.log('\n[10/10] Generating investigation suggestions...');
   const { suggestions, summary: suggestionSummary } = generateSuggestions(prelimAssessment);
   console.log(`  Suggestions: ${suggestionSummary.total} (${suggestionSummary.high} high, ${suggestionSummary.medium} medium, ${suggestionSummary.low} low)`);
 
@@ -399,13 +417,20 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
       languagesDetected,
       translationsPerformed,
     },
+    webSearch: {
+      searchesPerformed: webSearchResult.searchesPerformed,
+      totalResults: webSearchResult.totalResults,
+      evidenceGenerated: webEvidence.length,
+      errors: webSearchResult.errors,
+    },
     metadata: {
-      version: '3.0',
+      version: '3.1',
       toolName: 'Koppla',
-      sourcesChecked: ['OFAC SDN List', 'UN Sanctions List', 'EU Sanctions List'],
-      sourcesNotYetImplemented: ['News', 'Forums', 'Social Media', 'NGO Reports'],
+      sourcesChecked: ['OFAC SDN List', 'UN Sanctions List', 'EU Sanctions List', 'DuckDuckGo Web Search'],
+      sourcesNotYetImplemented: ['Forums', 'Social Media', 'NGO Reports'],
       analysisLayers: [
         'sanctions-check',
+        'web-search',
         'pdf-extraction',
         'language-detection',
         'entity-extraction',
