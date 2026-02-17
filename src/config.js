@@ -69,4 +69,31 @@ module.exports = {
   storage: {
     assessmentsDir: 'data/assessments', // where to save assessment JSON files
   },
+
+  // --- Translation Settings ---
+  // Controls how non-English/non-Swedish text is handled
+  translation: {
+    targetLanguage: 'en',             // translate everything to English for analysis
+    maxTextLength: 5000,              // max chars per translation request (Google limit)
+    delayBetweenTranslations: 1000,   // ms between translation API calls
+    skipLanguages: ['en', 'sv'],      // don't translate these (we can process them directly)
+    minTextLengthForDetection: 20,    // franc needs at least this many chars for reliable detection
+  },
+
+  // --- Entity Extraction Settings ---
+  // Controls how people/organizations are pulled from text
+  entityExtraction: {
+    minConfidence: 0.3,               // ignore entities below this confidence threshold
+    maxEntitiesPerText: 50,           // safety limit — prevent runaway extraction
+    deduplicationThreshold: 0.85,     // name similarity threshold for merging duplicates (0-1)
+  },
+
+  // --- Cross-Referencing Settings ---
+  // Controls how connections between entities are detected
+  crossReferencing: {
+    coMentionWindowChars: 200,        // characters to look within for co-mentions
+    proximityWindowWords: 30,         // words to look within for proximity search
+    minCoMentions: 2,                 // minimum co-mentions to create a relationship
+    anomalyThresholdMultiplier: 3,    // flag if frequency is N times the average
+  },
 };

@@ -19,7 +19,7 @@
  * @param {Object} params.scoredResults - Result from scoreAllEvidence()
  * @returns {Object} { flag: string, reason: string, details: Array }
  */
-function assignFlag({ sanctionsResult, scoredResults }) {
+function assignFlag({ sanctionsResult, scoredResults, hypotheses = [], confidenceWarnings = [] }) {
   const details = []; // Collect reasons for the flag assignment
 
   // --- Check for RED flag conditions ---
@@ -112,6 +112,13 @@ function assignFlag({ sanctionsResult, scoredResults }) {
     details.push(`Pending investigation(s): ${pendingEvidence.length}`);
   }
 
+  // NEW: High-confidence hypotheses count as additional yellow indicators
+  const highConfHypotheses = hypotheses.filter((h) => h.confidence === 'high');
+  if (highConfHypotheses.length > 0) {
+    yellowIndicators += highConfHypotheses.length;
+    details.push(`${highConfHypotheses.length} high-confidence hypothesis(es) from analysis`);
+  }
+
   if (yellowIndicators >= 2) {
     return {
       flag: 'YELLOW',
@@ -141,6 +148,11 @@ function assignFlag({ sanctionsResult, scoredResults }) {
   // If we checked at least some sources and found nothing
   if (yellowIndicators === 1) {
     details.push('Only 1 indicator found (below yellow threshold)');
+  }
+
+  // NEW: Note any common-name warnings in the details
+  if (confidenceWarnings.length > 0) {
+    details.push(`${confidenceWarnings.length} name(s) flagged as common — verify manually`);
   }
 
   return {

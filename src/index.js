@@ -1,5 +1,5 @@
 /**
- * Values Assessment Tool — Main Entry Point / CLI
+ * Koppla — Values Assessment Tool — Main Entry Point / CLI
  *
  * Usage:
  *   node src/index.js "Organization Name"
@@ -8,9 +8,13 @@
  * This is the main script that ties everything together:
  * 1. Takes an organization name as input
  * 2. Runs it through sanctions checks
- * 3. Scores and assigns a flag
- * 4. Saves the results to a JSON file
- * 5. Prints a readable summary
+ * 3. Detects languages and translates non-English/Swedish text
+ * 4. Extracts entities (people, organizations, roles)
+ * 5. Cross-references entities and builds a network graph
+ * 6. Scores evidence and generates hypotheses
+ * 7. Assigns a flag (red/yellow/green/grey)
+ * 8. Saves the results to a JSON file
+ * 9. Prints a readable summary
  */
 
 const { checkAllSanctions } = require('./scrapers/sanctionsScraper');
@@ -18,6 +22,14 @@ const { scoreAllEvidence } = require('./scoring/credibility');
 const { assignFlag } = require('./scoring/flagAssignment');
 const { saveAssessment, listAssessments } = require('./storage/storage');
 const { CATEGORIES } = require('./keywords/keywords');
+
+// New Phase 2 modules
+const { detectLanguage } = require('./language/languageDetector');
+const { translateIfNeeded, clearCache: clearTranslationCache } = require('./language/translator');
+const { extractFromMultipleTexts } = require('./entities/entityExtractor');
+const { crossReference } = require('./network/crossReferencer');
+const { buildNetworkGraph, calculateCentrality, exportForVisJs } = require('./network/networkGraph');
+const { generateHypotheses } = require('./analysis/hypothesisGenerator');
 
 // --- CLI Argument Parsing ---
 
@@ -27,7 +39,7 @@ const args = process.argv.slice(2); // remove "node" and script path
 if (args.length === 0) {
   console.log(`
 ╔══════════════════════════════════════════════════╗
-║       Values Assessment Tool v1.0                ║
+║       Koppla — Values Assessment Tool v2.0       ║
 ╚══════════════════════════════════════════════════╝
 
 Usage:
@@ -60,7 +72,6 @@ if (args[0] === '--list') {
 
 // Handle --help
 if (args[0] === '--help') {
-  // Re-run with no args to show help
   process.argv = process.argv.slice(0, 2);
   require('./index');
   process.exit(0);
@@ -72,41 +83,98 @@ runAssessment(orgName);
 
 /**
  * Main assessment function.
- * Orchestrates the full pipeline: check → score → flag → save → display.
+ * Orchestrates the full pipeline: check → language → entities → network → score → flag → save → display.
  *
  * @param {string} orgName - The organization name to assess
  */
 async function runAssessment(orgName) {
   console.log(`
 ╔══════════════════════════════════════════════════╗
-║       Values Assessment Tool v1.0                ║
+║       Koppla — Values Assessment Tool v2.0       ║
 ╚══════════════════════════════════════════════════╝
 `);
   console.log(`Assessing: "${orgName}"`);
   console.log('─'.repeat(50));
 
-  // --- Step 1: Check sanctions lists ---
-  console.log('\n📋 Step 1: Checking sanctions lists...');
+  // Clear translation cache from any previous run
+  clearTranslationCache();
+
+  // === Step 1: Check sanctions lists ===
+  console.log('\n[1/7] Checking sanctions lists...');
   const sanctionsResult = await checkAllSanctions(orgName);
 
-  // --- Step 2: Build evidence list ---
-  // For now, evidence comes from sanctions checks only.
-  // As we add more scrapers (news, forums, etc.), they'll feed into this list.
-  console.log('\n📊 Step 2: Building evidence list...');
+  // === Step 2: Build evidence list ===
+  console.log('\n[2/7] Building evidence list...');
   const evidence = buildEvidenceFromSanctions(sanctionsResult);
   console.log(`  Found ${evidence.length} piece(s) of evidence`);
 
-  // --- Step 3: Score evidence ---
-  console.log('\n⚖️  Step 3: Scoring evidence...');
+  // === Step 3: Language detection & translation ===
+  console.log('\n[3/7] Processing languages...');
+  const processedTexts = await processLanguages(evidence, sanctionsResult);
+  const languagesDetected = [...new Set(processedTexts.map((t) => t.language))];
+  const translationsPerformed = processedTexts.filter(
+    (t) => t.translationSource !== 'not-needed' && t.translationSource !== 'none'
+  ).length;
+  console.log(`  Texts processed: ${processedTexts.length}`);
+  console.log(`  Languages detected: ${languagesDetected.join(', ') || 'none'}`);
+  console.log(`  Translations performed: ${translationsPerformed}`);
+
+  // === Step 4: Entity extraction ===
+  console.log('\n[4/7] Extracting entities...');
+  const textObjects = processedTexts.map((pt) => ({
+    text: pt.translatedText || pt.originalText,
+    source: pt.source,
+    sourceUrl: pt.sourceUrl || '',
+    language: pt.language,
+  }));
+  const extractionResult = extractFromMultipleTexts(textObjects, orgName);
+  console.log(`  Entities found: ${extractionResult.summary.people} people, ${extractionResult.summary.organizations} organizations`);
+
+  // === Step 5: Cross-referencing & network graph ===
+  console.log('\n[5/7] Cross-referencing & building network...');
+  const textSources = processedTexts.map((pt) => ({
+    text: pt.translatedText || pt.originalText,
+    source: pt.source,
+  }));
+  const crossRefResult = crossReference(
+    extractionResult.entities,
+    evidence,
+    orgName,
+    textSources
+  );
+  const networkGraph = buildNetworkGraph(
+    orgName,
+    extractionResult.entities,
+    crossRefResult.relationships
+  );
+  console.log(`  Relationships: ${crossRefResult.summary.totalRelationships}`);
+  console.log(`  Anomalies: ${crossRefResult.summary.totalAnomalies}`);
+  console.log(`  Network: ${networkGraph.graphMetadata.totalNodes} nodes, ${networkGraph.graphMetadata.totalEdges} edges`);
+
+  // === Step 6: Score evidence & generate hypotheses ===
+  console.log('\n[6/7] Scoring evidence & generating hypotheses...');
   const scoredResults = scoreAllEvidence(evidence);
+  const { hypotheses, confidenceWarnings } = generateHypotheses(
+    scoredResults,
+    networkGraph,
+    crossRefResult,
+    extractionResult
+  );
   console.log(`  Overall score: ${scoredResults.overallScore.toFixed(1)}`);
   console.log(`  Credible sources: ${scoredResults.credibleSourceCount}`);
+  console.log(`  Hypotheses generated: ${hypotheses.length}`);
+  console.log(`  Name warnings: ${confidenceWarnings.length}`);
 
-  // --- Step 4: Assign flag ---
-  console.log('\n🚩 Step 4: Assigning flag...');
-  const flag = assignFlag({ sanctionsResult, scoredResults });
+  // === Step 7: Assign flag ===
+  console.log('\n[7/7] Assigning flag...');
+  const flag = assignFlag({
+    sanctionsResult,
+    scoredResults,
+    hypotheses,
+    confidenceWarnings,
+  });
 
-  // --- Step 5: Compile and save assessment ---
+  // === Compile and save assessment ===
   const assessment = {
     orgName,
     assessedAt: new Date().toISOString(),
@@ -125,19 +193,117 @@ async function runAssessment(orgName) {
     },
     evidence: scoredResults.scoredEvidence,
     categories: CATEGORIES,
+
+    // --- New Phase 2 data ---
+    entities: extractionResult,
+    networkGraph,
+    visJsExport: exportForVisJs(networkGraph),
+    hypotheses,
+    confidenceWarnings,
+    languageProcessing: {
+      textsProcessed: processedTexts.length,
+      languagesDetected,
+      translationsPerformed,
+    },
+
     metadata: {
-      version: '1.0',
+      version: '2.0',
+      toolName: 'Koppla',
       sourcesChecked: ['OFAC SDN List', 'UN Sanctions List', 'EU Sanctions List'],
       sourcesNotYetImplemented: ['News', 'Forums', 'Social Media', 'NGO Reports'],
+      analysisLayers: [
+        'sanctions-check',
+        'language-detection',
+        'entity-extraction',
+        'cross-referencing',
+        'network-graph',
+        'hypothesis-generation',
+      ],
     },
   };
 
-  console.log('\n💾 Step 5: Saving assessment...');
+  console.log('\nSaving assessment...');
   const savedPath = saveAssessment(assessment);
   console.log(`  Saved to: ${savedPath}`);
 
-  // --- Step 6: Print summary ---
+  // Print summary
   printSummary(assessment);
+}
+
+/**
+ * Process text through language detection and translation.
+ * Extracts text content from evidence and sanctions results,
+ * detects its language, and translates if needed.
+ *
+ * @param {Array} evidence - Evidence items
+ * @param {Object} sanctionsResult - Sanctions check results
+ * @returns {Array} Processed text objects with translations
+ */
+async function processLanguages(evidence, sanctionsResult) {
+  const processedTexts = [];
+
+  // Process evidence descriptions
+  for (const ev of evidence) {
+    const text = ev.description || '';
+    if (!text || text.length < 5) continue;
+
+    const langResult = detectLanguage(text);
+    const translation = await translateIfNeeded(text, langResult.detectedLanguage);
+
+    processedTexts.push({
+      originalText: text,
+      translatedText: translation.translatedText,
+      language: langResult.detectedLanguage,
+      languageName: langResult.languageName,
+      needsTranslation: langResult.needsTranslation,
+      translationSource: translation.translationSource,
+      source: ev.source,
+      sourceUrl: ev.sourceUrl,
+    });
+  }
+
+  // Process raw sanctions match data (names, context lines)
+  for (const result of sanctionsResult.results) {
+    for (const match of result.matches || []) {
+      // Process the matched name
+      const nameText = match.name || '';
+      if (nameText.length >= 3) {
+        const langResult = detectLanguage(nameText);
+        const translation = await translateIfNeeded(nameText, langResult.detectedLanguage);
+
+        processedTexts.push({
+          originalText: nameText,
+          translatedText: translation.translatedText,
+          language: langResult.detectedLanguage,
+          languageName: langResult.languageName,
+          needsTranslation: langResult.needsTranslation,
+          translationSource: translation.translationSource,
+          source: result.source,
+          sourceUrl: result.sourceUrl,
+        });
+      }
+
+      // Process raw line context if available (e.g., from EU list)
+      const rawLine = match.rawLine || '';
+      if (rawLine.length >= 10) {
+        const langResult = detectLanguage(rawLine);
+        const translation = await translateIfNeeded(rawLine, langResult.detectedLanguage);
+
+        processedTexts.push({
+          originalText: rawLine,
+          translatedText: translation.translatedText,
+          language: langResult.detectedLanguage,
+          languageName: langResult.languageName,
+          needsTranslation: langResult.needsTranslation,
+          translationSource: translation.translationSource,
+          source: result.source,
+          sourceUrl: result.sourceUrl,
+        });
+      }
+    }
+  }
+
+  return processedTexts;
 }
 
 /**
@@ -177,9 +343,9 @@ function printSummary(assessment) {
   const emoji = getFlagEmoji(flag.flag);
 
   console.log('\n');
-  console.log('═'.repeat(50));
-  console.log(`  ASSESSMENT RESULT: ${emoji} ${flag.flag}`);
-  console.log('═'.repeat(50));
+  console.log('═'.repeat(55));
+  console.log(`  KOPPLA ASSESSMENT: ${emoji} ${flag.flag}`);
+  console.log('═'.repeat(55));
   console.log(`  Organization: ${assessment.orgName}`);
   console.log(`  Date:         ${assessment.assessedAt}`);
   console.log(`  Flag:         ${emoji} ${flag.flag}`);
@@ -188,25 +354,74 @@ function printSummary(assessment) {
   if (flag.details.length > 0) {
     console.log(`  Details:`);
     for (const detail of flag.details) {
-      console.log(`    • ${detail}`);
+      console.log(`    - ${detail}`);
     }
   }
 
-  console.log('─'.repeat(50));
+  // --- Sanctions section ---
+  console.log('─'.repeat(55));
   console.log(`  Sanctions:      ${assessment.sanctions.sanctioned ? 'YES — found on list' : 'Not found'}`);
   console.log(`  Evidence items: ${assessment.scoring.totalItems}`);
   console.log(`  Overall score:  ${assessment.scoring.overallScore.toFixed(1)}`);
 
-  if (assessment.sanctions.errors.length > 0) {
-    console.log(`\n  ⚠️  Some sources had errors:`);
-    for (const err of assessment.sanctions.errors) {
-      console.log(`    • ${err}`);
+  // --- Analysis section (new) ---
+  console.log('─'.repeat(55));
+  const entities = assessment.entities?.summary || {};
+  console.log(`  Entities:       ${entities.people || 0} people, ${entities.organizations || 0} organizations`);
+  const graph = assessment.networkGraph?.graphMetadata || {};
+  console.log(`  Network:        ${graph.totalNodes || 0} nodes, ${graph.totalEdges || 0} edges`);
+
+  // Show edge type breakdown if there are edges
+  if (graph.edgeTypeBreakdown && Object.keys(graph.edgeTypeBreakdown).length > 0) {
+    const breakdown = Object.entries(graph.edgeTypeBreakdown)
+      .map(([type, count]) => `${count} ${type}`)
+      .join(', ');
+    console.log(`                  (${breakdown})`);
+  }
+
+  console.log(`  Hypotheses:     ${(assessment.hypotheses || []).length} generated`);
+
+  // Print hypotheses if any
+  if (assessment.hypotheses && assessment.hypotheses.length > 0) {
+    for (const hyp of assessment.hypotheses) {
+      const confEmoji = hyp.confidence === 'high' ? '!' : hyp.confidence === 'medium' ? '~' : '?';
+      console.log(`    [${confEmoji}] ${hyp.description}`);
+      console.log(`        Confidence: ${hyp.confidence} (${(hyp.confidenceScore * 100).toFixed(0)}%) | Type: ${hyp.type}`);
+      if (hyp.warnings.length > 0) {
+        for (const w of hyp.warnings) {
+          console.log(`        Warning: ${w}`);
+        }
+      }
     }
   }
 
-  console.log(`\n  Sources checked: ${assessment.metadata.sourcesChecked.join(', ')}`);
+  // Confidence warnings
+  if (assessment.confidenceWarnings && assessment.confidenceWarnings.length > 0) {
+    console.log(`  Name warnings:  ${assessment.confidenceWarnings.length}`);
+    for (const w of assessment.confidenceWarnings) {
+      console.log(`    - ${w.warning}`);
+    }
+  }
+
+  // Language processing
+  const lang = assessment.languageProcessing || {};
+  if (lang.translationsPerformed > 0) {
+    console.log(`  Translations:   ${lang.translationsPerformed} performed`);
+  }
+
+  // Errors
+  if (assessment.sanctions.errors.length > 0) {
+    console.log(`\n  Source errors:`);
+    for (const err of assessment.sanctions.errors) {
+      console.log(`    - ${err}`);
+    }
+  }
+
+  console.log('─'.repeat(55));
+  console.log(`  Sources checked: ${assessment.metadata.sourcesChecked.join(', ')}`);
   console.log(`  Not yet available: ${assessment.metadata.sourcesNotYetImplemented.join(', ')}`);
-  console.log('═'.repeat(50));
+  console.log(`  Analysis layers: ${assessment.metadata.analysisLayers.length} active`);
+  console.log('═'.repeat(55));
 }
 
 /**
