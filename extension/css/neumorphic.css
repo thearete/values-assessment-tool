@@ -1,0 +1,427 @@
+/**
+ * Koppla — Neumorphic Design System
+ *
+ * Core variables, base styles, reusable components.
+ * Everything is built from soft shadows on a light background.
+ */
+
+/* === CSS Variables === */
+:root {
+  /* Background */
+  --bg-primary: #e8eef1;
+  --bg-secondary: #dfe6eb;
+
+  /* Accent — teal/dark green */
+  --accent: #1a6b54;
+  --accent-light: #2a8f72;
+  --accent-dark: #145541;
+
+  /* Text */
+  --text-primary: #2d3748;
+  --text-secondary: #718096;
+  --text-muted: #a0aec0;
+
+  /* Flag colors */
+  --flag-red: #E53E3E;
+  --flag-red-bg: #FED7D7;
+  --flag-yellow: #D69E2E;
+  --flag-yellow-bg: #FEFCBF;
+  --flag-green: #38A169;
+  --flag-green-bg: #C6F6D5;
+  --flag-grey: #A0AEC0;
+  --flag-grey-bg: #EDF2F7;
+
+  /* Neumorphic shadows */
+  --shadow-raised: 6px 6px 12px #c5ccd3, -6px -6px 12px #ffffff;
+  --shadow-pressed: inset 4px 4px 8px #c5ccd3, inset -4px -4px 8px #ffffff;
+  --shadow-subtle: 3px 3px 6px #c5ccd3, -3px -3px 6px #ffffff;
+  --shadow-hover: 8px 8px 16px #c5ccd3, -8px -8px 16px #ffffff;
+
+  /* Spacing */
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 6px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+
+  /* Typography */
+  --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+}
+
+/* === Reset & Base === */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 400px;
+  min-height: 520px;
+  max-height: 600px;
+  background: var(--bg-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* === Header === */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.header-brand {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+
+.header-menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-xs);
+  color: var(--accent);
+}
+
+.header-menu-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.header-dropdown {
+  position: absolute;
+  top: 52px;
+  right: var(--space-md);
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-raised);
+  padding: var(--space-sm) 0;
+  z-index: 100;
+  min-width: 180px;
+}
+
+.header-dropdown button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  background: none;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-family);
+}
+
+.header-dropdown button:hover {
+  background: var(--bg-secondary);
+}
+
+.menu-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  border-top: 1px solid var(--bg-secondary);
+  margin-top: var(--space-xs);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--flag-grey);
+}
+
+.status-dot.connected { background: var(--flag-green); }
+.status-dot.disconnected { background: var(--flag-red); }
+
+/* === Main Content Area === */
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+/* Custom scrollbar */
+.main-content::-webkit-scrollbar {
+  width: 4px;
+}
+.main-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.main-content::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 2px;
+}
+
+/* === Neumorphic Card === */
+.neu-card {
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
+  padding: var(--space-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.neu-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.neu-card--clickable {
+  cursor: pointer;
+}
+
+.neu-card--clickable:active {
+  box-shadow: var(--shadow-pressed);
+}
+
+.neu-card--flat {
+  box-shadow: none;
+  background: var(--bg-secondary);
+}
+
+/* === Neumorphic Button === */
+.neu-btn {
+  background: var(--bg-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-subtle);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.neu-btn:active {
+  box-shadow: var(--shadow-pressed);
+}
+
+.neu-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.neu-btn--primary {
+  background: var(--accent);
+  color: white;
+  box-shadow: 3px 3px 6px #145541, -3px -3px 6px #2a8f72;
+}
+
+.neu-btn--primary:active {
+  box-shadow: inset 3px 3px 6px #145541, inset -3px -3px 6px #2a8f72;
+}
+
+.neu-btn--small {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-xs);
+}
+
+/* === Neumorphic Input === */
+.neu-input {
+  background: var(--bg-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-pressed);
+  padding: 10px var(--space-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  width: 100%;
+  outline: none;
+}
+
+.neu-input:focus {
+  box-shadow: var(--shadow-pressed), 0 0 0 2px var(--accent);
+}
+
+.neu-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* === Collapsible Section === */
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: var(--space-sm) 0;
+  user-select: none;
+}
+
+.collapsible-header .chevron {
+  transition: transform 0.3s ease;
+  color: var(--text-secondary);
+}
+
+.collapsible-header.open .chevron {
+  transform: rotate(180deg);
+}
+
+.collapsible-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.collapsible-body.open {
+  max-height: 1000px;
+}
+
+/* === Seed Chip === */
+.seed-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.seed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: var(--font-size-xs);
+  color: var(--text-primary);
+}
+
+.seed-chip .remove-seed {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.seed-chip .remove-seed:hover {
+  color: var(--flag-red);
+}
+
+/* === Loading Overlay === */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(232, 238, 241, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  z-index: 200;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  box-shadow: var(--shadow-raised);
+  border: 3px solid var(--bg-secondary);
+  border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-step {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* === Toast Notification === */
+.toast {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--accent);
+  color: white;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 300;
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* === Section Title === */
+.section-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.section-title svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+}
+
+/* === Badge === */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.badge--high { background: var(--flag-red-bg); color: var(--flag-red); }
+.badge--medium { background: var(--flag-yellow-bg); color: var(--flag-yellow); }
+.badge--low { background: var(--flag-grey-bg); color: var(--text-secondary); }
+
+/* === Utility === */
+.hidden { display: none !important; }
+.text-muted { color: var(--text-secondary); }
+.text-xs { font-size: var(--font-size-xs); }
+.text-sm { font-size: var(--font-size-sm); }
+.mt-sm { margin-top: var(--space-sm); }
+.mt-md { margin-top: var(--space-md); }
+.mb-sm { margin-bottom: var(--space-sm); }
+.mb-md { margin-bottom: var(--space-md); }
+.gap-sm { gap: var(--space-sm); }

@@ -38,47 +38,49 @@ const { generateHypotheses } = require('./analysis/hypothesisGenerator');
 const { generateSuggestions } = require('./analysis/investigationSuggestions');
 
 // ===================================================================
-// CLI ARGUMENT PARSING
+// CLI ARGUMENT PARSING (only runs when executed directly from command line)
 // ===================================================================
 
-const rawArgs = process.argv.slice(2);
+if (require.main === module) {
+  const rawArgs = process.argv.slice(2);
 
-if (rawArgs.length === 0) {
-  printHelp();
-  process.exit(0);
-}
-
-if (rawArgs[0] === '--help') {
-  printHelp();
-  process.exit(0);
-}
-
-if (rawArgs[0] === '--list') {
-  const assessments = listAssessments();
-  if (assessments.length === 0) {
-    console.log('No saved assessments found.');
-  } else {
-    console.log('\nSaved Assessments:');
-    console.log('─'.repeat(60));
-    for (const a of assessments) {
-      console.log(`  ${getFlagEmoji(a.flag)} ${a.orgName} (${a.date})`);
-      console.log(`     File: ${a.filename}`);
-    }
+  if (rawArgs.length === 0) {
+    printHelp();
+    process.exit(0);
   }
-  process.exit(0);
+
+  if (rawArgs[0] === '--help') {
+    printHelp();
+    process.exit(0);
+  }
+
+  if (rawArgs[0] === '--list') {
+    const assessments = listAssessments();
+    if (assessments.length === 0) {
+      console.log('No saved assessments found.');
+    } else {
+      console.log('\nSaved Assessments:');
+      console.log('─'.repeat(60));
+      for (const a of assessments) {
+        console.log(`  ${getFlagEmoji(a.flag)} ${a.orgName} (${a.date})`);
+        console.log(`     File: ${a.filename}`);
+      }
+    }
+    process.exit(0);
+  }
+
+  // Parse structured args: org name, --seed, --seed-org, --pdf
+  const { orgName, seeds, pdfPaths } = parseArgs(rawArgs);
+
+  if (!orgName) {
+    console.log('Error: Organization name is required.');
+    console.log('Usage: node src/index.js "Organization Name" [--seed "Name, Role"] [--pdf file.pdf]');
+    process.exit(1);
+  }
+
+  // Run the assessment
+  runAssessment(orgName, seeds, pdfPaths);
 }
-
-// Parse structured args: org name, --seed, --seed-org, --pdf
-const { orgName, seeds, pdfPaths } = parseArgs(rawArgs);
-
-if (!orgName) {
-  console.log('Error: Organization name is required.');
-  console.log('Usage: node src/index.js "Organization Name" [--seed "Name, Role"] [--pdf file.pdf]');
-  process.exit(1);
-}
-
-// Run the assessment
-runAssessment(orgName, seeds, pdfPaths);
 
 /**
  * Parse CLI arguments into structured data.
@@ -421,6 +423,8 @@ async function runAssessment(orgName, seeds = [], pdfPaths = []) {
   console.log(`  Saved to: ${savedPath}`);
 
   printSummary(assessment);
+
+  return assessment;
 }
 
 // ===================================================================
@@ -700,3 +704,9 @@ function getFlagEmoji(flag) {
     default:       return '❓';
   }
 }
+
+// ===================================================================
+// MODULE EXPORTS (for use by the API server)
+// ===================================================================
+
+module.exports = { runAssessment };

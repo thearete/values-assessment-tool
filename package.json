@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "server": "node src/server.js",
     "test": "echo \"Tests coming soon\" && exit 0"
   },
   "keywords": [
@@ -21,7 +22,9 @@
     "axios": "^1.13.5",
     "cheerio": "^1.2.0",
     "compromise": "^14.14.5",
+    "cors": "^2.8.6",
     "dotenv": "^17.3.1",
+    "express": "^5.2.1",
     "franc": "^6.2.0",
     "google-translate-api-x": "^10.7.2",
     "pdf-parse": "^2.4.5"
