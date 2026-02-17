@@ -1,0 +1,25 @@
+{
+  "name": "values-assessment-tool",
+  "version": "1.0.0",
+  "description": "Assesses organizations against Swedish public agency values (democracy, human rights, LGBTQ+, gender equality) by collecting data from public sources and assigning flag ratings.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "echo \"Tests coming soon\" && exit 0"
+  },
+  "keywords": [
+    "values",
+    "assessment",
+    "sanctions",
+    "human-rights",
+    "lgbtq",
+    "sweden"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.5",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.3.1"
+  }
+}
